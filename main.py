@@ -1,6 +1,6 @@
+import random
 from enum import Enum, auto
 from itertools import product
-import random 
 
 
 class Suit(Enum):
@@ -37,6 +37,9 @@ class Deck:
         # Create all combinations of suits and ranks using itertools.product
         self.cards = [Card(suit, rank) for suit, rank in product(Suit, Rank)]   # pyrefly: ignore
 
+    def shuffle(self):
+        random.shuffle(self.cards)
+
     # TODO: Perhaps use an iterator? So that I don't have to do .cards
 
 
@@ -52,11 +55,14 @@ class Player:
 
 class Table:
     def __init__(self, players: list[Player], small_blind: int, big_blind: int):
-        self.players = players
-        self.pot_size = 0
-        self.small_blind = small_blind
-        self.big_blind = big_blind
-        self.dealer = 0
+        self.players: list[Player] = players
+        self.pot_size: int = 0
+        self.small_blind: int = small_blind
+        self.big_blind: int = big_blind
+        self.dealer: int = 0
+        self.flop: list[Card]
+        self.turn: Card
+        self.river: Card
 
 
 deck: Deck = Deck()
@@ -71,7 +77,7 @@ p6: Player = Player("john", 1000)
 
 t: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200)
 
-random.shuffle(deck.cards)
+deck.shuffle()
 
 for c in deck.cards:
     print(f"Rank: {c.rank}. Suit: {c.suit}")
@@ -85,17 +91,34 @@ print(f"Deck contains {len(deck.cards)} cards")
 # find random cards
 # add to player's hands. remove from deck. 
 
-for p in t.players:
+print()
+
+for i, p in enumerate(t.players):
     # select two numbers from the number of cards in the deck
     # add these cards to the players' hands
     # remove from the deck
     card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
     p.hand += [deck.cards[i] for i in card_indices]
     deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
-    print(vars(p)['name'], vars(p.hand[0]), vars(p.hand[1]))
+    print(f"Player {i+1}", vars(p)['name'], vars(p.hand[0]), vars(p.hand[1]))
 
 assert(len(deck.cards) == 40)
+print()
 
+# now for the community cards, where should they be added? should they be created when the table is
+# initiated or when the deck is dealt? i think the table should have the community cards
+# undefined and when the card is dealt the attributes are set
+
+# simply remove two cards from the deck and set them as attributes for table flop, turn, and river
+
+community_card_indices: list[int] = random.sample([i for i in range(40)], 5)
+t.flop = [deck.cards[community_card_indices[i]] for i in range(3)]
+t.turn = deck.cards[community_card_indices[3]]
+t.river = deck.cards[community_card_indices[4]]
+
+print(f"Flop: {[vars(i) for i in t.flop]}")
+print(f"Turn: {vars(t.turn)}")
+print(f"River: {vars(t.river)}")
 
 # Game Iteration
 # TODO: Use circular list
