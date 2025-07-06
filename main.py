@@ -1,5 +1,6 @@
 from enum import Enum, auto
 from itertools import product
+import random 
 
 
 class Suit(Enum):
@@ -34,7 +35,7 @@ class Card:
 class Deck:
     def __init__(self):
         # Create all combinations of suits and ranks using itertools.product
-        self.cards = [Card(suit, rank) for suit, rank in product(Suit, Rank)]
+        self.cards = [Card(suit, rank) for suit, rank in product(Suit, Rank)]   # pyrefly: ignore
 
     # TODO: Perhaps use an iterator? So that I don't have to do .cards
 
@@ -50,7 +51,7 @@ class Player:
 
 
 class Table:
-    def __init__(self, players: list, small_blind: int, big_blind: int):
+    def __init__(self, players: list[Player], small_blind: int, big_blind: int):
         self.players = players
         self.pot_size = 0
         self.small_blind = small_blind
@@ -58,24 +59,43 @@ class Table:
         self.dealer = 0
 
 
-# Example usage:
-deck = Deck()
-print(f"Deck contains {len(deck.cards)} cards")
-
-for i in deck.cards:
-    print(f"Rank: {i.rank}. Suit: {i.suit}")
-
+deck: Deck = Deck()
 
 # Naive player simulation
+p1: Player = Player("alice", 1000)
+p2: Player = Player("bob", 1000)
+p3: Player = Player("charlie", 1000)
+p4: Player = Player("jacob", 1000)
+p5: Player = Player("aarjav", 1000)
+p6: Player = Player("john", 1000)
 
-p1 = Player("alice", 1000)
-p2 = Player("bob", 1000)
-p3 = Player("charlie", 1000)
-p4 = Player("jacob", 1000)
-p5 = Player("aarjav", 1000)
-p6 = Player("john", 1000)
+t: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200)
 
-t = Table([p1, p2, p3, p4, p5, p6], 100, 200)
+random.shuffle(deck.cards)
+
+for c in deck.cards:
+    print(f"Rank: {c.rank}. Suit: {c.suit}")
+
+print(f"Deck contains {len(deck.cards)} cards")
+
+# dealer is already set to 0
+# give each player two cards
+
+# for each player, distribute two random cards from the deck
+# find random cards
+# add to player's hands. remove from deck. 
+
+for p in t.players:
+    # select two numbers from the number of cards in the deck
+    # add these cards to the players' hands
+    # remove from the deck
+    card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
+    p.hand += [deck.cards[i] for i in card_indices]
+    deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
+    print(vars(p)['name'], vars(p.hand[0]), vars(p.hand[1]))
+
+assert(len(deck.cards) == 40)
+
 
 # Game Iteration
 # TODO: Use circular list
