@@ -10,6 +10,14 @@ class Suit(Enum):
     DIAMONDS = auto()
 
 
+suit_symbols: dict[Suit, str] = {
+    Suit.SPADES: "♠︎",
+    Suit.HEARTS: "♥︎",
+    Suit.CLUBS: "♣︎",
+    Suit.DIAMONDS: "♦︎"
+}
+
+
 class Rank(Enum):
     TWO = auto()
     THREE = auto()
@@ -26,16 +34,26 @@ class Rank(Enum):
     ACE = auto()
 
 
+rank_symbols = {
+    Rank.TWO: "2", Rank.THREE: "3", Rank.FOUR: "4", Rank.FIVE: "5",
+    Rank.SIX: "6", Rank.SEVEN: "7", Rank.EIGHT: "8", Rank.NINE: "9",
+    Rank.TEN: "T", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
+}
+
+
 class Card:
     def __init__(self, suit: Suit, rank: Rank):
-        self.suit = suit
-        self.rank = rank
+        self.suit: Suit = suit
+        self.rank: Rank = rank
+
+    def __str__(self):
+        return f"{suit_symbols[self.suit]} {rank_symbols[self.rank]}"
 
 
 class Deck:
     def __init__(self):
         # Create all combinations of suits and ranks using itertools.product
-        self.cards = [Card(suit, rank) for suit, rank in product(Suit, Rank)]   # pyrefly: ignore
+        self.cards: list[Card] = [Card(suit, rank) for suit, rank in product(Suit, Rank)]   # pyrefly: ignore
 
     def shuffle(self):
         random.shuffle(self.cards)
@@ -45,11 +63,11 @@ class Deck:
 
 class Player:
     def __init__(self, name: str, chips: int):
-        self.name = name
-        self.chips = chips
-        self.hand = []
-        self.current_bet = 0
-        self.is_active = True
+        self.name: str = name
+        self.chips: int = chips
+        self.hand: list[Card] = []
+        self.current_bet: int = 0
+        self.is_active: bool = True
         # TODO: do we need position?
 
 
@@ -79,8 +97,9 @@ t: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200)
 
 deck.shuffle()
 
-for c in deck.cards:
-    print(f"Rank: {c.rank}. Suit: {c.suit}")
+# TODO: use generator here instead
+for i in deck.cards:
+    print(i)
 
 print(f"Deck contains {len(deck.cards)} cards")
 
@@ -100,7 +119,7 @@ for i, p in enumerate(t.players):
     card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
     p.hand += [deck.cards[i] for i in card_indices]
     deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
-    print(f"Player {i+1}", vars(p)['name'], vars(p.hand[0]), vars(p.hand[1]))
+    print(f"{i+1}. {p.name}: ", p.hand[0], p.hand[1])
 
 assert(len(deck.cards) == 40)
 print()
@@ -116,9 +135,9 @@ t.flop = [deck.cards[community_card_indices[i]] for i in range(3)]
 t.turn = deck.cards[community_card_indices[3]]
 t.river = deck.cards[community_card_indices[4]]
 
-print(f"Flop: {[vars(i) for i in t.flop]}")
-print(f"Turn: {vars(t.turn)}")
-print(f"River: {vars(t.river)}")
+print(f"Flop: {[str(i) for i in t.flop]}")
+print(f"Turn: {t.turn}")
+print(f"River: {t.river}")
 
 # Game Iteration
 # TODO: Use circular list
