@@ -108,7 +108,7 @@ print(f"Deck contains {len(deck.cards)} cards")
 
 # for each player, distribute two random cards from the deck
 # find random cards
-# add to player's hands. remove from deck. 
+# add to player's hands. remove from deck.
 
 print()
 
@@ -121,7 +121,7 @@ for i, p in enumerate(t.players):
     deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
     print(f"{i+1}. {p.name}: ", p.hand[0], p.hand[1])
 
-assert(len(deck.cards) == 40)
+assert (len(deck.cards) == 40)
 print()
 
 # now for the community cards, where should they be added? should they be created when the table is
