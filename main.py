@@ -49,6 +49,9 @@ class Card:
     def __str__(self):
         return f"{suit_symbols[self.suit]} {rank_symbols[self.rank]}"
 
+    def __repr__(self):
+        return self.__str__()
+
 
 class Deck:
     def __init__(self):
