@@ -101,19 +101,21 @@ class HandRank(IntEnum):
 
 
 def evaluate_table(table: Table) -> dict[Player, HandRank]:
-    community_cards = table.flop + [table.river, table.turn]
+    community_cards: list[Card] = table.flop + [table.river, table.turn]
     player_ranks: dict[Player, HandRank] = dict()
 
     for player in table.players:
         best_hand: HandRank = HandRank.HIGH_CARD
 
         for hand in combinations(player.hand + community_cards, 5):
-            print(type(hand))
+            print(hand, evaluate_hand(list(hand)))
             best_hand = max(best_hand, evaluate_hand(list(hand)))
 
         player_ranks[player] = best_hand
+        print(f"{player.name}: {best_hand}")
         
     return player_ranks
+
 
 
 def evaluate_hand(hand: list[Card]) -> HandRank:
@@ -124,18 +126,30 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
 
     hand.sort(key=lambda c: c.rank)
 
+
     def is_suited(cards: list[Card]) -> bool:
         return len(set(i.suit for i in cards)) == 1
+
+    def is_sequence(cards: list[Card]) -> bool:
+        if (list(card.rank for card in cards) == [12, 0, 1, 2, 3]):
+            return True
+
+        # iterate through all elements. i = 0 -> n-1. check if [i+1] - [i] = 1
+        for i in range(len(cards) - 1):
+            if cards[i+1].rank - cards[i].rank != 1:
+                return False
+    
+        return True
 
     if (is_suited(hand)):
         if (list(i.rank for i in hand) == [8, 9, 10, 11, 12]):
             return HandRank.ROYAL_FLUSH
-        elif (tuple(b.rank - a.rank for a, b in zip(hand, hand[:1]))[0] == 1):
+        elif (is_sequence(hand)):
             return HandRank.STRAIGHT_FLUSH
         
         return HandRank.FLUSH
     else:
-        print("not suited...")
+        # print("not suited...")
         # check for straight first
         # keep a dict of occurences for each element in the hand
         # 4 occurences?
@@ -146,14 +160,15 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
         # else high card
 
         """
-        - [ ] fix sequence checker. create a new function.
-        - [ ] Ace works both ways
+        - [x] find a way to map Ace to both 0 and 12. or find a better solution to sort the cards
+          because A = 12 and at the end of the 2 3 4 5 A card combination
+        - [x] stress test evaluate_table function for all 21 combinations
         """
 
-        if (tuple(b.rank - a.rank for a, b in zip(hand, hand[:1]))[0] == 1):
+        if (is_sequence(hand)):
             return HandRank.STRAIGHT
 
-        hand_counter: Counter = Counter(hand)
+        hand_counter: Counter = Counter(list(card.rank for card in hand))
 
         match hand_counter.most_common(1)[0][1]:
             case 4:
