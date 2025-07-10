@@ -1,6 +1,7 @@
 import random
-from enum import Enum, auto
-from itertools import product
+from enum import Enum, IntEnum, auto
+from itertools import product, combinations
+from collections import Counter
 
 
 class Suit(Enum):
@@ -18,26 +19,26 @@ suit_symbols: dict[Suit, str] = {
 }
 
 
-class Rank(Enum):
-    TWO = auto()
-    THREE = auto()
-    FOUR = auto()
-    FIVE = auto()
-    SIX = auto()
-    SEVEN = auto()
-    EIGHT = auto()
-    NINE = auto()
-    TEN = auto()
-    JACK = auto()
-    QUEEN = auto()
-    KING = auto()
-    ACE = auto()
+class Rank(IntEnum):
+    TWO = 0
+    THREE = 1
+    FOUR = 2
+    FIVE = 3
+    SIX = 4
+    SEVEN = 5
+    EIGHT = 6
+    NINE = 7
+    TEN = 8
+    JACK = 9
+    QUEEN = 10
+    KING = 11
+    ACE = 12
 
 
 rank_symbols = {
     Rank.TWO: "2", Rank.THREE: "3", Rank.FOUR: "4", Rank.FIVE: "5",
     Rank.SIX: "6", Rank.SEVEN: "7", Rank.EIGHT: "8", Rank.NINE: "9",
-    Rank.TEN: "T", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
+    Rank.TEN: "10", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
 }
 
 
@@ -86,6 +87,96 @@ class Table:
         self.river: Card
 
 
+class HandRank(IntEnum):
+    HIGH_CARD = 0
+    PAIR = 1
+    TWO_PAIR = 2
+    THREE_OF_A_KIND = 3
+    STRAIGHT = 4
+    FLUSH = 5
+    FULL_HOUSE = 6
+    FOUR_OF_A_KIND = 7
+    STRAIGHT_FLUSH = 8
+    ROYAL_FLUSH = 9
+
+
+def evaluate_table(table: Table) -> dict[Player, HandRank]:
+    community_cards = table.flop + [table.river, table.turn]
+    player_ranks: dict[Player, HandRank] = dict()
+
+    for player in table.players:
+        best_hand: HandRank = HandRank.HIGH_CARD
+
+        for hand in combinations(player.hand + community_cards, 5):
+            print(type(hand))
+            best_hand = max(best_hand, evaluate_hand(list(hand)))
+
+        player_ranks[player] = best_hand
+        
+    return player_ranks
+
+
+def evaluate_hand(hand: list[Card]) -> HandRank:
+    """
+    if suited -> royal flush, straight flush, flush
+    else -> four of a kind, full house, straight, three of a kind, two pair, pair, high card
+    """
+
+    hand.sort(key=lambda c: c.rank)
+
+    def is_suited(cards: list[Card]) -> bool:
+        return len(set(i.suit for i in cards)) == 1
+
+    if (is_suited(hand)):
+        if (list(i.rank for i in hand) == [8, 9, 10, 11, 12]):
+            return HandRank.ROYAL_FLUSH
+        elif (tuple(b.rank - a.rank for a, b in zip(hand, hand[:1]))[0] == 1):
+            return HandRank.STRAIGHT_FLUSH
+        
+        return HandRank.FLUSH
+    else:
+        print("not suited...")
+        # check for straight first
+        # keep a dict of occurences for each element in the hand
+        # 4 occurences?
+        # 3 occurences?
+        # 2 occurences twice?
+        # 2 occurences once?
+        # 2 occurences and 3 occurences?
+        # else high card
+
+        """
+        - [ ] fix sequence checker. create a new function.
+        - [ ] Ace works both ways
+        """
+
+        if (tuple(b.rank - a.rank for a, b in zip(hand, hand[:1]))[0] == 1):
+            return HandRank.STRAIGHT
+
+        hand_counter: Counter = Counter(hand)
+
+        match hand_counter.most_common(1)[0][1]:
+            case 4:
+                return HandRank.FOUR_OF_A_KIND
+            case 3:
+                if (hand_counter.most_common(2)[1][1] == 2):
+                    # [KKK, 2, 2]
+                    # [(K, 3), (2, 2)]
+                    return HandRank.FULL_HOUSE
+
+                return HandRank.THREE_OF_A_KIND
+            case 2:
+                # if there are two pairs
+                if (tuple(o for _, o in hand_counter.most_common(2)) == (2, 2)):
+                    return HandRank.TWO_PAIR
+                else:
+                    return HandRank.PAIR
+
+        
+        return HandRank.HIGH_CARD
+
+
+
 deck: Deck = Deck()
 
 # Naive player simulation
@@ -101,8 +192,8 @@ t: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200)
 deck.shuffle()
 
 # TODO: use generator here instead
-for i in deck.cards:
-    print(i)
+# for i in deck.cards:
+#     print(i)
 
 print(f"Deck contains {len(deck.cards)} cards")
 
@@ -115,6 +206,7 @@ print(f"Deck contains {len(deck.cards)} cards")
 
 print()
 
+# Dealing Cards
 for i, p in enumerate(t.players):
     # select two numbers from the number of cards in the deck
     # add these cards to the players' hands
@@ -122,7 +214,7 @@ for i, p in enumerate(t.players):
     card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
     p.hand += [deck.cards[i] for i in card_indices]
     deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
-    print(f"{i+1}. {p.name}: ", p.hand[0], p.hand[1])
+    print(f"{i+1}. {p.name}: ", p.hand)
 
 assert (len(deck.cards) == 40)
 print()
@@ -141,6 +233,8 @@ t.river = deck.cards[community_card_indices[4]]
 print(f"Flop: {[str(i) for i in t.flop]}")
 print(f"Turn: {t.turn}")
 print(f"River: {t.river}")
+
+print(evaluate_table(t))
 
 # Game Iteration
 # TODO: Use circular list
@@ -171,4 +265,3 @@ print(f"River: {t.river}")
 13. player.chips += pot. pot = 0.
 14. dealer incremented
 """
-
