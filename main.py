@@ -70,7 +70,6 @@ class Player:
         self.name: str = name
         self.chips: int = chips
         self.hand: list[Card] = []
-        self.current_bet: int = 0
         self.is_active: bool = True
         # TODO: do we need position?
 
@@ -85,6 +84,9 @@ class Table:
         self.flop: list[Card]
         self.turn: Card
         self.river: Card
+        self.current_bet: int
+        self.current_round: dict[Player, int] = {p: 0 for p in self.players}
+        self.last_player: Player
 
 
 class HandRank(IntEnum):
@@ -255,28 +257,69 @@ print(evaluate_table(t))
 # TODO: Use circular list
 
 """
-0. shuffle the deck
-1. dealer = 0 (! not for every game)
-2. dealing mechanism. each player gets 2 cards.
-3. 3 cards are opened in the center. removed from the deck.
-4. round 1
-    a. small_blind and big_blind are played
-    b. rest of the players match the big_blind
-    c. dealer matches the big_blind
-    d. small_blind matches the big_blind
-    e. added to pot
-5. (burned card)
-6. card revealed. removed from the deck.
-7. round 2
-    a. everybody just plays 200
-    b. add to pot
-8. (burned card)
-9. card revealed. removed from deck.
-10. round 3
-    a. everybody bets 200
-    b. add to pot
-11. show of hands
-12. ranks calculated
-13. player.chips += pot. pot = 0.
-14. dealer incremented
+Betting Round Logic
+
+1. pot += small_blind, big_blind
+2. players[dealer+1] -= small_blind
+3. players[dealer+2] -= big_blind
+
+1. Preflop
+d. current_bet = big_blind
+e. options - bet, fold, raise
+
+bet
+i. pot += current_bet
+ii. current_player -= current_bet
+
+fold
+i. current_player.active = False
+ii. move to next player
+
+raise
+i. only allow if > big_blind*2
+ii. set current_bet = new_bet
+iii. from i -> 0 then 1 -> i: 
+
+p1 - dealer
+p2 - small = 100
+p3 - big = 200
+p4 - raised to 400
+current_bet = 400
+p5 - bets 400
+p6 - raises to 800 (min reqd > p5*2)
+p1 - 800
+p2 - 700
+p3 - 600
+p4 - 400
+
+TODO: Add current_round_bets attribute
+i. go from players[dealer+2] with current_bet = big_blind
+ii. last_player = dealer+2
+iii. if raised -> last_player = current_player
+iv. loop (around the table):
+    a. if last_player: current_bet = big_blind; next round
+    b. else calculate current_bet - player[current_bet]
+
+TODO: side pots and all ins
+showdown
+i. evaluate table for active players. player with max rank wins
 """
+
+def play(table: Table):
+    t = table   # Alias
+    
+    # Pre Game
+    t.pot_size = t.small_blind + t.big_blind
+    t.players[t.dealer+1].chips -= t.small_blind
+    t.players[t.dealer+2].chips -= t.big_blind
+
+    # Pre Flop
+    t.current_bet = t.big_blind
+    
+    """
+    start from dealer+3
+    ask if bet, fold, or raise
+    """
+
+    t.last_player
+
