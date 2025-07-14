@@ -101,15 +101,11 @@ class Table:
         self.pot_size += (self.small_blind + self.big_blind)
 
         # dealing hole cards
-        for i, p in enumerate(self.players):
-            # select two numbers from the number of cards in the deck
-            # add these cards to the players' hands
-            # remove from the deck
-            # TODO: clean this up
-            card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
-            p.hand += [deck.cards[i] for i in card_indices]
-            deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
-            print(f"{i+1}. {p.name}: ", p.hand)
+        for p in self.players:
+            hole_cards: list[Card] = random.sample(deck.cards, 2)
+            for card in hole_cards:
+                deck.cards.remove(card)
+                p.hand.append(card)
 
 
 
