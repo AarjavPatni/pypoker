@@ -80,13 +80,38 @@ class Table:
         self.pot_size: int = 0
         self.small_blind: int = small_blind
         self.big_blind: int = big_blind
-        self.dealer: int = 0
+        self.dealer: int = -1
         self.flop: list[Card]
         self.turn: Card
         self.river: Card
         self.current_bet: int
         self.current_round: dict[Player, int] = {p: 0 for p in self.players}
         self.last_player: Player
+
+    def pre_game(self, deck: Deck):
+        # TODO: use index instead?
+        self.dealer += 1
+        self.last_player = self.players[self.dealer + 1]
+
+        # collect blinds
+        self.players[self.dealer + 1].chips -= self.small_blind
+        self.players[self.dealer + 2].chips -= self.big_blind
+
+        # move to pot
+        self.pot_size += (self.small_blind + self.big_blind)
+
+        # dealing hole cards
+        for i, p in enumerate(self.players):
+            # select two numbers from the number of cards in the deck
+            # add these cards to the players' hands
+            # remove from the deck
+            # TODO: clean this up
+            card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
+            p.hand += [deck.cards[i] for i in card_indices]
+            deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
+            print(f"{i+1}. {p.name}: ", p.hand)
+
+
 
 
 class HandRank(IntEnum):
@@ -223,15 +248,6 @@ print(f"Deck contains {len(deck.cards)} cards")
 
 print()
 
-# Dealing Cards
-for i, p in enumerate(t.players):
-    # select two numbers from the number of cards in the deck
-    # add these cards to the players' hands
-    # remove from the deck
-    card_indices: list[int] = random.sample([i for i in range(len(deck.cards))], 2)
-    p.hand += [deck.cards[i] for i in card_indices]
-    deck.cards = [card for i, card in enumerate(deck.cards) if i not in card_indices]
-    print(f"{i+1}. {p.name}: ", p.hand)
 
 assert (len(deck.cards) == 40)
 print()
