@@ -2,6 +2,7 @@ import random
 from enum import Enum, IntEnum, auto
 from itertools import product, combinations
 from collections import Counter
+from typing import Optional
 
 
 class Suit(Enum):
@@ -75,21 +76,30 @@ class Player:
 
 
 class Table:
-    def __init__(self, players: list[Player], small_blind: int, big_blind: int):
+    def __init__(self, players: list[Player], small_blind: int, big_blind: int, deck: Deck):
         self.players: list[Player] = players
         self.pot_size: int = 0
         self.small_blind: int = small_blind
         self.big_blind: int = big_blind
         self.dealer: int = -1
-        self.flop: list[Card]
-        self.turn: Card
-        self.river: Card
+        self.flop_cards: list[Card]
+        self.turn_cards: Card
+        self.river_cards: Card
         self.current_bet: int
         self.current_round: dict[Player, int] = {p: 0 for p in self.players}
         self.last_player: Player
+        self.deck = deck
 
-    def pre_game(self, deck: Deck):
+
+    # TODO: set default to dealer
+    def start_betting(self, first_player: Optional[int] = None):
+        first_player = first_player or self.dealer
+        pass
+
+
+    def pre_game(self):
         # TODO: use index instead?
+        deck: Deck = self.deck
         self.dealer += 1
         self.last_player = self.players[self.dealer + 1]
 
@@ -107,7 +117,60 @@ class Table:
                 deck.cards.remove(card)
                 p.hand.append(card)
 
+    
+    def pre_flop(self):
+        self.start_betting(t.dealer + 3)
 
+
+    def flop(self):
+        deck: Deck = self.deck
+        flop: list[Card] = random.sample(deck.cards, 3)
+        for card in flop:
+            self.deck.cards.remove(card)
+            self.flop_cards.append(card)
+
+        print(self.flop_cards)
+        self.start_betting()
+
+
+    def turn(self):
+        deck: Deck = self.deck
+        flop: list[Card] = random.sample(deck.cards, 1)
+        for card in flop:
+            self.deck.cards.remove(card)
+            self.flop_cards.append(card)
+
+        print(self.turn_cards)
+        self.start_betting()
+
+
+    def river(self):
+        deck: Deck = self.deck
+        flop: list[Card] = random.sample(deck.cards, 3)
+        for card in flop:
+            self.deck.cards.remove(card)
+            self.flop_cards.append(card)
+
+        print(self.river_cards)
+        self.start_betting()
+
+
+    def showdown(self):
+        # show all active hands
+        for p in self.players:
+            print(f"{p.name} - {p.hand}")
+
+        player_ranks: dict[Player, HandRank] = evaluate_table(self)
+
+        # TODO: pretty print the player_ranks
+        print(player_ranks)
+
+        # printing chips. TODO: find a better way to do this
+        player_chips: dict[Player, int] = {}
+        player_chips = dict(sorted(player_chips.items(), key=lambda x: x[1]))
+
+        for p in player_chips.items():
+            print(f"{p[0]} - {p[1]}")
 
 
 class HandRank(IntEnum):
@@ -124,7 +187,7 @@ class HandRank(IntEnum):
 
 
 def evaluate_table(table: Table) -> dict[Player, HandRank]:
-    community_cards: list[Card] = table.flop + [table.river, table.turn]
+    community_cards: list[Card] = table.flop_cards + [table.river_cards, table.turn_cards]
     player_ranks: dict[Player, HandRank] = dict()
 
     for player in table.players:
@@ -136,7 +199,9 @@ def evaluate_table(table: Table) -> dict[Player, HandRank]:
 
         player_ranks[player] = best_hand
         print(f"{player.name}: {best_hand}")
-        
+
+    # sort by ranks
+    player_ranks = dict(sorted(player_ranks.items(), key=lambda x: x[1])) 
     return player_ranks
 
 
