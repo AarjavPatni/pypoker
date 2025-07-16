@@ -83,18 +83,49 @@ class Table:
         self.big_blind: int = big_blind
         self.dealer: int = -1
         self.flop_cards: list[Card]
-        self.turn_cards: Card
+        self.turn_card: Card
         self.river_cards: Card
         self.current_bet: int
-        self.current_round: dict[Player, int] = {p: 0 for p in self.players}
+        # self.current_round: dict[Player, int] = {p: 0 for p in self.players}
         self.last_player: Player
-        self.deck = deck
+        self.deck: Deck = deck
+
+    
+    def handle_player_action(self, player: Player, action: str) -> bool:
+        match action:
+            case "call":
+                self.pot_size += self.current_bet
+                player.chips -= self.current_bet
+                return True
+
+            case "raise":
+                raise_amt: int = int(input("Enter raise amount: ")) # TODO: handle valuerror
+
+                if raise_amt < 2*self.current_bet:
+                    print("Minimum raise has to be twice the current bet")
+                    return False
+
+                self.current_bet = raise_amt
+                player.chips -= raise_amt
+                self.pot_size += raise_amt
+                return True
+
+            case "fold":
+                player.is_active = False
+                return True
+
+        return False
 
 
     # TODO: set default to dealer
     def start_betting(self, first_player: Optional[int] = None):
-        first_player = first_player or self.dealer
-        pass
+        first_player = first_player or (self.dealer + 1)
+        # loop through Table
+        for i in range(len(self.players)):
+            # should be an enum
+            action: str = input("choose an action (fold, call, raise)")
+            while not self.handle_player_action(self.players[first_player+i], action):
+                pass
 
 
     def pre_game(self):
@@ -124,7 +155,7 @@ class Table:
 
     def flop(self):
         deck: Deck = self.deck
-        flop: list[Card] = random.sample(deck.cards, 3)
+        flop: list[Card] = random.sample(deck.cards, 3)     # !! this is shuffling again. convert into a deal function
         for card in flop:
             self.deck.cards.remove(card)
             self.flop_cards.append(card)
@@ -135,21 +166,21 @@ class Table:
 
     def turn(self):
         deck: Deck = self.deck
-        flop: list[Card] = random.sample(deck.cards, 1)
-        for card in flop:
+        turn: list[Card] = random.sample(deck.cards, 1)
+        for card in turn:
             self.deck.cards.remove(card)
-            self.flop_cards.append(card)
+            self.turn_card = card
 
-        print(self.turn_cards)
+        print(self.turn_card)
         self.start_betting()
 
 
     def river(self):
         deck: Deck = self.deck
-        flop: list[Card] = random.sample(deck.cards, 3)
-        for card in flop:
+        river: list[Card] = random.sample(deck.cards, 1)
+        for card in river:
             self.deck.cards.remove(card)
-            self.flop_cards.append(card)
+            self.river_cards = card
 
         print(self.river_cards)
         self.start_betting()
@@ -187,7 +218,7 @@ class HandRank(IntEnum):
 
 
 def evaluate_table(table: Table) -> dict[Player, HandRank]:
-    community_cards: list[Card] = table.flop_cards + [table.river_cards, table.turn_cards]
+    community_cards: list[Card] = table.flop_cards + [table.river_cards, table.turn_card]
     player_ranks: dict[Player, HandRank] = dict()
 
     for player in table.players:

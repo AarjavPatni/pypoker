@@ -37,6 +37,7 @@ MVP - 6v6 poker played over the network
         - [ ] Evaluate the table
         - [ ] Output winner and final stats (chips, ranks, etc)
 - [ ] Handle betting
+    - [ ] Add deal method
     - [ ] Loop through table until last player reached
     - [ ] Prompt player for action (fold, call, raise)
     - [ ] Bets
