@@ -3,6 +3,9 @@ from enum import Enum, IntEnum, auto
 from itertools import product, combinations
 from collections import Counter
 from typing import Optional
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
 
 class Suit(Enum):
@@ -13,11 +16,11 @@ class Suit(Enum):
 
 
 suit_symbols: dict[Suit, str] = {
-    Suit.SPADES: "♠︎",
-    Suit.HEARTS: "♥︎",
-    Suit.CLUBS: "♣︎",
-    Suit.DIAMONDS: "♦︎"
-}
+        Suit.SPADES: "♠︎",
+        Suit.HEARTS: "♥︎",
+        Suit.CLUBS: "♣︎",
+        Suit.DIAMONDS: "♦︎"
+        }
 
 
 class Rank(IntEnum):
@@ -37,10 +40,10 @@ class Rank(IntEnum):
 
 
 rank_symbols = {
-    Rank.TWO: "2", Rank.THREE: "3", Rank.FOUR: "4", Rank.FIVE: "5",
-    Rank.SIX: "6", Rank.SEVEN: "7", Rank.EIGHT: "8", Rank.NINE: "9",
-    Rank.TEN: "10", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
-}
+        Rank.TWO: "2", Rank.THREE: "3", Rank.FOUR: "4", Rank.FIVE: "5",
+        Rank.SIX: "6", Rank.SEVEN: "7", Rank.EIGHT: "8", Rank.NINE: "9",
+        Rank.TEN: "10", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
+        }
 
 
 class Card:
@@ -62,6 +65,8 @@ class Deck:
 
     def shuffle(self):
         random.shuffle(self.cards)
+    
+    # TODO: Use a draw method
 
     # TODO: Perhaps use an iterator? So that I don't have to do .cards
 
@@ -82,15 +87,15 @@ class Table:
         self.small_blind: int = small_blind
         self.big_blind: int = big_blind
         self.dealer: int = -1
-        self.flop_cards: list[Card]
+        self.flop_cards: list[Card] = []
         self.turn_card: Card
-        self.river_cards: Card
-        self.current_bet: int
+        self.river_card: Card
+        self.current_bet: int = big_blind
         # self.current_round: dict[Player, int] = {p: 0 for p in self.players}
         self.last_player: Player
         self.deck: Deck = deck
 
-    
+
     def handle_player_action(self, player: Player, action: str) -> bool:
         match action:
             case "call":
@@ -117,29 +122,45 @@ class Table:
         return False
 
 
+    def begin_game(self):
+        self.pre_game()
+        self.pre_flop()
+        self.flop()
+        self.turn()
+        self.river()
+        self.showdown()
+
+
     # TODO: set default to dealer
     def start_betting(self, first_player: Optional[int] = None):
         first_player = first_player or (self.dealer + 1)
         # loop through Table
         for i in range(len(self.players)):
-            # should be an enum
-            action: str = input("choose an action (fold, call, raise)")
-            while not self.handle_player_action(self.players[first_player+i], action):
-                pass
+            current_player = self.players[(first_player + i) % len(self.players)]
+            # !! allow checking / initial bet
+            action: str = input(f"{current_player.name}, choose an action (fold, call, raise). Current bet to call: {self.current_bet}: ")
+            while not self.handle_player_action(current_player, action):
+                action = input(f"{current_player.name}, choose an action (fold, call, raise). Current bet to call: {self.current_bet}: ")
 
 
     def pre_game(self):
-        # TODO: use index instead?
+        logging.info("=== Starting Pre-Game ===")
         deck: Deck = self.deck
         self.dealer += 1
         self.last_player = self.players[self.dealer + 1]
+
+        logging.info(f"Dealer set to player {self.players[self.dealer].name}")
 
         # collect blinds
         self.players[self.dealer + 1].chips -= self.small_blind
         self.players[self.dealer + 2].chips -= self.big_blind
 
+        logging.info(f"Small blind collected from {self.players[self.dealer + 1].name}")
+        logging.info(f"Big blind collected from {self.players[self.dealer + 2].name}")
+
         # move to pot
         self.pot_size += (self.small_blind + self.big_blind)
+        logging.info(f"Pot size updated to {self.pot_size}")
 
         # dealing hole cards
         for p in self.players:
@@ -147,61 +168,89 @@ class Table:
             for card in hole_cards:
                 deck.cards.remove(card)
                 p.hand.append(card)
+            logging.info(f"Dealt hole cards to {p.name}: {p.hand}")
 
-    
+        self.current_bet = self.big_blind
+
+
+
     def pre_flop(self):
-        self.start_betting(t.dealer + 3)
+        logging.info("\n=== Starting Pre-Flop ===")
+        self.start_betting(self.dealer + 3)
+        logging.info("=== Ending Pre-Flop ===")
+        self.current_bet = self.big_blind
 
 
     def flop(self):
+        logging.info("=== Starting Flop ===")
         deck: Deck = self.deck
-        flop: list[Card] = random.sample(deck.cards, 3)     # !! this is shuffling again. convert into a deal function
+        flop: list[Card] = random.sample(deck.cards, 3)
         for card in flop:
             self.deck.cards.remove(card)
             self.flop_cards.append(card)
-
-        print(self.flop_cards)
+        logging.info(f"Flop cards: {self.flop_cards}")
         self.start_betting()
-
+        logging.info("=== Ending Flop ===")
+        self.current_bet = self.big_blind
 
     def turn(self):
+        logging.info("=== Starting Turn ===")
         deck: Deck = self.deck
-        turn: list[Card] = random.sample(deck.cards, 1)
-        for card in turn:
-            self.deck.cards.remove(card)
-            self.turn_card = card
-
-        print(self.turn_card)
+        turn: Card = random.sample(deck.cards, 1)[0]
+        self.deck.cards.remove(turn)
+        self.turn_card = turn
+        logging.info(f"Turn card: {self.turn_card}")
         self.start_betting()
-
+        logging.info("=== Ending Turn ===")
+        self.current_bet = self.big_blind
 
     def river(self):
+        logging.info("=== Starting River ===")
         deck: Deck = self.deck
-        river: list[Card] = random.sample(deck.cards, 1)
-        for card in river:
-            self.deck.cards.remove(card)
-            self.river_cards = card
+        river: Card = random.sample(deck.cards, 1)[0]
+        self.deck.cards.remove(river)
+        self.turn_card = river
+        logging.info(f"River card: {self.river_card}")
+        self.start_betting()
+        logging.info("=== Ending River ===")
+        self.current_bet = self.big_blind
 
-        print(self.river_cards)
+
+    def deal_community_cards(self):
+        community_cards: list[Card] = random.sample(deck.cards, 5)
+        self.flop_cards = community_cards[:3]
+        self.turn_card = community_cards[3]
+        self.river_card = community_cards[4]
+
+        for card in community_cards:
+            self.deck.cards.remove(card)
+
+        print(f"flop - {self.flop_cards}")
+        self.start_betting()
+        self.current_bet = self.big_blind
+
+        print(f"turn - {self.turn_card}")
+        self.start_betting()
+        self.current_bet = self.big_blind
+
+        print(f"river - {self.river_card}")
         self.start_betting()
 
 
     def showdown(self):
-        # show all active hands
+        logging.info("=== Starting Showdown ===")
         for p in self.players:
-            print(f"{p.name} - {p.hand}")
+            logging.info(f"{p.name} - {p.hand}")
 
         player_ranks: dict[Player, HandRank] = evaluate_table(self)
+        logging.info(f"Player ranks: {player_ranks}")
 
-        # TODO: pretty print the player_ranks
-        print(player_ranks)
-
-        # printing chips. TODO: find a better way to do this
         player_chips: dict[Player, int] = {}
         player_chips = dict(sorted(player_chips.items(), key=lambda x: x[1]))
 
         for p in player_chips.items():
-            print(f"{p[0]} - {p[1]}")
+            logging.info(f"{p[0]} - {p[1]}")
+        logging.info("=== Ending Showdown ===")
 
 
 class HandRank(IntEnum):
@@ -218,7 +267,7 @@ class HandRank(IntEnum):
 
 
 def evaluate_table(table: Table) -> dict[Player, HandRank]:
-    community_cards: list[Card] = table.flop_cards + [table.river_cards, table.turn_card]
+    community_cards: list[Card] = table.flop_cards + [table.river_card, table.turn_card]
     player_ranks: dict[Player, HandRank] = dict()
 
     for player in table.players:
@@ -257,7 +306,7 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
         for i in range(len(cards) - 1):
             if cards[i+1].rank - cards[i].rank != 1:
                 return False
-    
+
         return True
 
     if (is_suited(hand)):
@@ -265,7 +314,7 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
             return HandRank.ROYAL_FLUSH
         elif (is_sequence(hand)):
             return HandRank.STRAIGHT_FLUSH
-        
+
         return HandRank.FLUSH
     else:
         # print("not suited...")
@@ -306,128 +355,20 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
                 else:
                     return HandRank.PAIR
 
-        
+
         return HandRank.HIGH_CARD
 
 
+if __name__ == "__main__":
+    p1: Player = Player("alice", 1000)
+    p2: Player = Player("bob", 1000)
+    p3: Player = Player("charlie", 1000)
+    p4: Player = Player("tom", 1000)
+    p5: Player = Player("aarjav", 1000)
+    p6: Player = Player("stone", 1000)
 
-deck: Deck = Deck()
+    deck: Deck = Deck()
 
-# Naive player simulation
-p1: Player = Player("alice", 1000)
-p2: Player = Player("bob", 1000)
-p3: Player = Player("charlie", 1000)
-p4: Player = Player("jacob", 1000)
-p5: Player = Player("aarjav", 1000)
-p6: Player = Player("john", 1000)
-
-t: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200)
-
-deck.shuffle()
-
-# TODO: use generator here instead
-# for i in deck.cards:
-#     print(i)
-
-print(f"Deck contains {len(deck.cards)} cards")
-
-# dealer is already set to 0
-# give each player two cards
-
-# for each player, distribute two random cards from the deck
-# find random cards
-# add to player's hands. remove from deck.
-
-print()
-
-
-assert (len(deck.cards) == 40)
-print()
-
-# now for the community cards, where should they be added? should they be created when the table is
-# initiated or when the deck is dealt? i think the table should have the community cards
-# undefined and when the card is dealt the attributes are set
-
-# simply remove two cards from the deck and set them as attributes for table flop, turn, and river
-
-community_card_indices: list[int] = random.sample([i for i in range(40)], 5)
-t.flop = [deck.cards[community_card_indices[i]] for i in range(3)]
-t.turn = deck.cards[community_card_indices[3]]
-t.river = deck.cards[community_card_indices[4]]
-
-print(f"Flop: {[str(i) for i in t.flop]}")
-print(f"Turn: {t.turn}")
-print(f"River: {t.river}")
-
-print(evaluate_table(t))
-
-# Game Iteration
-# TODO: Use circular list
-
-"""
-Betting Round Logic
-
-1. pot += small_blind, big_blind
-2. players[dealer+1] -= small_blind
-3. players[dealer+2] -= big_blind
-
-1. Preflop
-d. current_bet = big_blind
-e. options - bet, fold, raise
-
-bet
-i. pot += current_bet
-ii. current_player -= current_bet
-
-fold
-i. current_player.active = False
-ii. move to next player
-
-raise
-i. only allow if > big_blind*2
-ii. set current_bet = new_bet
-iii. from i -> 0 then 1 -> i: 
-
-p1 - dealer
-p2 - small = 100
-p3 - big = 200
-p4 - raised to 400
-current_bet = 400
-p5 - bets 400
-p6 - raises to 800 (min reqd > p5*2)
-p1 - 800
-p2 - 700
-p3 - 600
-p4 - 400
-
-TODO: Add current_round_bets attribute
-i. go from players[dealer+2] with current_bet = big_blind
-ii. last_player = dealer+2
-iii. if raised -> last_player = current_player
-iv. loop (around the table):
-    a. if last_player: current_bet = big_blind; next round
-    b. else calculate current_bet - player[current_bet]
-
-TODO: side pots and all ins
-showdown
-i. evaluate table for active players. player with max rank wins
-"""
-
-def play(table: Table):
-    t = table   # Alias
-    
-    # Pre Game
-    t.pot_size = t.small_blind + t.big_blind
-    t.players[t.dealer+1].chips -= t.small_blind
-    t.players[t.dealer+2].chips -= t.big_blind
-
-    # Pre Flop
-    t.current_bet = t.big_blind
-    
-    """
-    start from dealer+3
-    ask if bet, fold, or raise
-    """
-
-    t.last_player
+    table: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200, deck)
+    table.begin_game()
 
