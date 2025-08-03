@@ -141,7 +141,7 @@ class Table:
     turn_card: Optional[Card] = None
     river_card: Optional[Card] = None
     players: list[Player] = field(default_factory=list)
-    deck: Deck = Deck()
+    deck: Deck = field(default_factory=Deck)
     pot_size: int = 0
     dealer: int = -1
     flop_cards: list[Card] = field(default_factory=list)
