@@ -9,33 +9,33 @@ MVP - 6v6 poker played over the network
     - [x] Shuffling the deck
     - [x] Removing random cards from the deck
     - [x] Adding cards to players' hands
-- [ ] Manage rounds
-    - [ ] Pre-game
-        - [ ] Set last player as d+1
-        - [ ] Assign dealer position
-        - [ ] Collect small blind from player
-        - [ ] Collect big blind from player
-        - [ ] Add blinds to pot
-        - [ ] Distribute hole cards
-    - [ ] Pre Flop
-        - [ ] Allow betting
-        - [ ] Start betting from [d+3] player
-    - [ ] Flop
-        - [ ] Deal flop
-        - [ ] Output flop
-        - [ ] Allow betting
-    - [ ] Turn
-        - [ ] Deal turn
-        - [ ] Output turn
-        - [ ] Allow betting
-    - [ ] River
-        - [ ] Deal river
-        - [ ] Output river
-        - [ ] Allow betting
-    - [ ] Showdown
-        - [ ] Show all active hands
-        - [ ] Evaluate the table
-        - [ ] Output winner and final stats (chips, ranks, etc)
+- [x] Manage rounds
+    - [x] Pre-game
+        - [x] Set last player as d+1
+        - [x] Assign dealer position
+        - [x] Collect small blind from player
+        - [x] Collect big blind from player
+        - [x] Add blinds to pot
+        - [x] Distribute hole cards
+    - [x] Pre Flop
+        - [x] Allow betting
+        - [x] Start betting from [d+3] player
+    - [x] Flop
+        - [x] Deal flop
+        - [x] Output flop
+        - [x] Allow betting
+    - [x] Turn
+        - [x] Deal turn
+        - [x] Output turn
+        - [x] Allow betting
+    - [x] River
+        - [x] Deal river
+        - [x] Output river
+        - [x] Allow betting
+    - [x] Showdown
+        - [x] Show all active hands
+        - [x] Evaluate the table
+        - [x] Output winner and final stats (chips, ranks, etc)
 - [ ] Handle betting
     - [ ] Add deal method
     - [ ] Loop through table until last player reached
@@ -49,6 +49,8 @@ MVP - 6v6 poker played over the network
         - [ ] Set current_bet = raise
         - [ ] Move current_bet from player to pot
         - [ ] Set last player = player who raised - 1
+    - [ ] Check
+        - [ ] TODO
     - [ ] All ins
         - [ ] Manage side pot
             - [ ] **TODO**
@@ -65,6 +67,21 @@ MVP - 6v6 poker played over the network
             - [ ] Store best hand and rank as dict. dict[player] = (rank, best hand)
             - [ ] If two players have the same rank in the dict, compare their best_hand
             - [ ] Comparing `best_hand` - Sort, loop through, select the highest
+
+---
+
+### Refactor
+
+- [ ] Deck
+    - [ ] draw method
+- [ ] Table
+    - [ ] handle_player_action
+        - [ ] handle raises
+    - [ ] start_betting
+        - [ ] accept an optional dict[player, actions] for each player
+    - [ ] immutable dealing of cards
+        - [ ] deal(no of cards, players) -> tuple[player, card]
+    - [ ] community card dealing
 
 ---
 

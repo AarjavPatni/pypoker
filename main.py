@@ -1,8 +1,11 @@
+from __future__ import annotations
 import random
 from enum import Enum, IntEnum, auto
 from itertools import product, combinations
 from collections import Counter
-from typing import Optional
+from typing import Optional, cast, Iterable
+from dataclasses import dataclass, field
+from copy import deepcopy
 import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -16,11 +19,11 @@ class Suit(Enum):
 
 
 suit_symbols: dict[Suit, str] = {
-        Suit.SPADES: "♠︎",
-        Suit.HEARTS: "♥︎",
-        Suit.CLUBS: "♣︎",
-        Suit.DIAMONDS: "♦︎"
-        }
+    Suit.SPADES: "♠︎",
+    Suit.HEARTS: "♥︎",
+    Suit.CLUBS: "♣︎",
+    Suit.DIAMONDS: "♦︎",
+}
 
 
 class Rank(IntEnum):
@@ -40,10 +43,20 @@ class Rank(IntEnum):
 
 
 rank_symbols = {
-        Rank.TWO: "2", Rank.THREE: "3", Rank.FOUR: "4", Rank.FIVE: "5",
-        Rank.SIX: "6", Rank.SEVEN: "7", Rank.EIGHT: "8", Rank.NINE: "9",
-        Rank.TEN: "10", Rank.JACK: "J", Rank.QUEEN: "Q", Rank.KING: "K", Rank.ACE: "A"
-        }
+    Rank.TWO: "2",
+    Rank.THREE: "3",
+    Rank.FOUR: "4",
+    Rank.FIVE: "5",
+    Rank.SIX: "6",
+    Rank.SEVEN: "7",
+    Rank.EIGHT: "8",
+    Rank.NINE: "9",
+    Rank.TEN: "10",
+    Rank.JACK: "J",
+    Rank.QUEEN: "Q",
+    Rank.KING: "K",
+    Rank.ACE: "A",
+}
 
 
 class Card:
@@ -61,14 +74,38 @@ class Card:
 class Deck:
     def __init__(self):
         # Create all combinations of suits and ranks using itertools.product
-        self.cards: list[Card] = [Card(suit, rank) for suit, rank in product(Suit, Rank)]   # pyrefly: ignore
+        self.cards: list[Card] = [
+            Card(suit, rank)
+            for suit, rank in product(
+                cast(Iterable[Suit], Suit), cast(Iterable[Rank], Rank)
+            )
+        ]  # pyrefly: ignore
 
-    def shuffle(self):
-        random.shuffle(self.cards)
-    
-    # TODO: Use a draw method
+    def draw(self, count: int) -> list[Card]:
+        # Shuffle isn't required because sample already returns random elements from the list
+        cards_drawn = random.sample(self.cards, count)
+        for card in cards_drawn:
+            self.cards.remove(card)
+
+        return cards_drawn
 
     # TODO: Perhaps use an iterator? So that I don't have to do .cards
+
+
+class HandRank(IntEnum):
+    HIGH_CARD = 0
+    PAIR = 1
+    TWO_PAIR = 2
+    THREE_OF_A_KIND = 3
+    STRAIGHT = 4
+    FLUSH = 5
+    FULL_HOUSE = 6
+    FOUR_OF_A_KIND = 7
+    STRAIGHT_FLUSH = 8
+    ROYAL_FLUSH = 9
+
+    def __repr__(self):
+        return self.name
 
 
 class Player:
@@ -77,146 +114,177 @@ class Player:
         self.chips: int = chips
         self.hand: list[Card] = []
         self.is_active: bool = True
-        # TODO: do we need position?
+
+    def __repr__(self):
+        return self.name
 
 
+@dataclass
+class Action:
+    code: int
+    value: Optional[int] = None
+
+    def __post_init__(self):
+        if self.code not in (1, 2, 3, 4):
+            raise ValueError("Action can only be one of check, call, raise, or fold.")
+
+        if self.code == 3:
+            if not self.value:
+                raise ValueError("You've raised without specifying an amount.")
+
+
+@dataclass
 class Table:
-    def __init__(self, players: list[Player], small_blind: int, big_blind: int, deck: Deck):
-        self.players: list[Player] = players
-        self.pot_size: int = 0
-        self.small_blind: int = small_blind
-        self.big_blind: int = big_blind
-        self.dealer: int = -1
-        self.flop_cards: list[Card] = []
-        self.turn_card: Card
-        self.river_card: Card
-        self.current_bet: int = big_blind
-        # self.current_round: dict[Player, int] = {p: 0 for p in self.players}
-        self.last_player: Player
-        self.deck: Deck = deck
+    small_blind: int
+    big_blind: int
+    last_player: Player = field(init=False)
+    turn_card: Optional[Card] = None
+    river_card: Optional[Card] = None
+    players: list[Player] = field(default_factory=list)
+    deck: Deck = Deck()
+    pot_size: int = 0
+    dealer: int = -1
+    flop_cards: list[Card] = field(default_factory=list)
+    player_actions: Optional[list[list[Action]]] = None
 
-
-    def handle_player_action(self, player: Player, action: str) -> bool:
-        match action:
-            case "call":
-                self.pot_size += self.current_bet
-                player.chips -= self.current_bet
-                return True
-
-            case "raise":
-                raise_amt: int = int(input("Enter raise amount: ")) # TODO: handle valuerror
-
-                if raise_amt < 2*self.current_bet:
-                    print("Minimum raise has to be twice the current bet")
-                    return False
-
-                self.current_bet = raise_amt
-                player.chips -= raise_amt
-                self.pot_size += raise_amt
-                return True
-
-            case "fold":
-                player.is_active = False
-                return True
-
-        return False
-
+    def __post_init__(self):
+        self.current_bet = self.big_blind
+        self.last_player = self.players[0]
 
     def begin_game(self):
-        self.pre_game()
-        self.pre_flop()
-        self.flop()
-        self.turn()
-        self.river()
-        self.showdown()
+        return self.pre_game().pre_flop().flop().turn().river().showdown().players
 
-
-    # TODO: set default to dealer
-    def start_betting(self, first_player: Optional[int] = None):
+    def start_betting(self, first_player: Optional[int] = None) -> Table:
+        """
+        Goes around the table asking players for actions until the current round is over. Then, returns
+        a new table instance.
+        """
+        mod_table: Table = deepcopy(self)
         first_player = first_player or (self.dealer + 1)
-        # loop through Table
-        for i in range(len(self.players)):
-            current_player = self.players[(first_player + i) % len(self.players)]
-            # !! allow checking / initial bet
-            action: str = input(f"{current_player.name}, choose an action (fold, call, raise). Current bet to call: {self.current_bet}: ")
-            while not self.handle_player_action(current_player, action):
-                action = input(f"{current_player.name}, choose an action (fold, call, raise). Current bet to call: {self.current_bet}: ")
+        test_action: Optional[list[Action]] = None
 
+        if mod_table.player_actions:
+            test_action = mod_table.player_actions.pop(0)
+
+        if test_action is not None:
+            for i in range(len(self.players)):
+                current_player_idx = (first_player + i) % len(self.players)
+                current_action: Action = test_action.pop(0)
+
+                if (
+                    handle_player_action(mod_table, current_player_idx, current_action)
+                    is None
+                ):
+                    raise ValueError(f"Incorrect action: {current_action}")
+        else:
+            for i in range(len(self.players)):
+                current_player_idx = (first_player + i) % len(self.players)
+                action: int = int(
+                    input(
+                        f"{self.players[current_player_idx].name}, choose an action (check (0), call (1), raise (2), fold (3). Current bet to call: {self.current_bet}: "
+                    )
+                )
+                if action == 2:
+                    raise_amt: int = int(input("enter raise amount: "))
+                    action_arg: Action = Action(2, raise_amt)
+                else:
+                    action_arg: Action = Action(action)
+
+                while not handle_player_action(
+                    mod_table, current_player_idx, action_arg
+                ):
+                    action: int = int(
+                        input(
+                            f"{self.players[current_player_idx].name}, choose an action (check (0), call (1), raise (2), fold (3). Current bet to call: {self.current_bet}: "
+                        )
+                    )
+                    if action == "raise":
+                        raise_amt: int = int(input("enter raise amount: "))
+                        action_arg: Action = Action(2, raise_amt)
+                    else:
+                        action_arg: Action = Action(action)
+
+        return mod_table
 
     def pre_game(self):
-        logging.info("=== Starting Pre-Game ===")
-        deck: Deck = self.deck
-        self.dealer += 1
-        self.last_player = self.players[self.dealer + 1]
+        mod_table: Table = deepcopy(self)
+        # set dealer, move blinds, dealing hole cards
+        mod_players: list[Player] = mod_table.players
 
-        logging.info(f"Dealer set to player {self.players[self.dealer].name}")
+        logging.info("=== Starting Pre-Game ===")
+        mod_pot: int = mod_table.pot_size
 
         # collect blinds
-        self.players[self.dealer + 1].chips -= self.small_blind
-        self.players[self.dealer + 2].chips -= self.big_blind
-
-        logging.info(f"Small blind collected from {self.players[self.dealer + 1].name}")
-        logging.info(f"Big blind collected from {self.players[self.dealer + 2].name}")
+        mod_players[self.dealer + 1].chips -= self.small_blind
+        mod_players[self.dealer + 2].chips -= self.big_blind
 
         # move to pot
-        self.pot_size += (self.small_blind + self.big_blind)
-        logging.info(f"Pot size updated to {self.pot_size}")
+        mod_pot += mod_table.small_blind + mod_table.big_blind
 
         # dealing hole cards
-        for p in self.players:
-            hole_cards: list[Card] = random.sample(deck.cards, 2)
-            for card in hole_cards:
-                deck.cards.remove(card)
-                p.hand.append(card)
-            logging.info(f"Dealt hole cards to {p.name}: {p.hand}")
+        for p in mod_players:
+            hole_cards: list[Card] = mod_table.deck.draw(2)
+            p.hand = hole_cards
 
-        self.current_bet = self.big_blind
+        mod_table.current_bet = mod_table.big_blind
 
-
+        return mod_table
 
     def pre_flop(self):
-        logging.info("\n=== Starting Pre-Flop ===")
-        self.start_betting(self.dealer + 3)
+        logging.info("=== Starting Pre-Flop ===")
+        mod_table: Table = deepcopy(self)
+        mod_table.start_betting(mod_table.dealer + 3)
         logging.info("=== Ending Pre-Flop ===")
-        self.current_bet = self.big_blind
+        mod_table.current_bet = 0
 
+        return mod_table
 
     def flop(self):
         logging.info("=== Starting Flop ===")
-        deck: Deck = self.deck
-        flop: list[Card] = random.sample(deck.cards, 3)
-        for card in flop:
-            self.deck.cards.remove(card)
-            self.flop_cards.append(card)
-        logging.info(f"Flop cards: {self.flop_cards}")
-        self.start_betting()
+        mod_table: Table = deepcopy(self)
+        flop: list[Card] = mod_table.deck.draw(3)
+        mod_table.flop_cards = flop
+
+        logging.info(f"Flop cards: {mod_table.flop_cards}")
+        mod_table.start_betting()
         logging.info("=== Ending Flop ===")
-        self.current_bet = self.big_blind
+
+        mod_table.current_bet = 0
+
+        return mod_table
 
     def turn(self):
         logging.info("=== Starting Turn ===")
-        deck: Deck = self.deck
-        turn: Card = random.sample(deck.cards, 1)[0]
-        self.deck.cards.remove(turn)
-        self.turn_card = turn
-        logging.info(f"Turn card: {self.turn_card}")
-        self.start_betting()
+        mod_table: Table = deepcopy(self)
+        turn: Card = mod_table.deck.draw(1)[0]
+        mod_table.turn_card = turn
+
+        logging.info(f"Turn card: {mod_table.turn_card}")
+        mod_table.start_betting()
         logging.info("=== Ending Turn ===")
-        self.current_bet = self.big_blind
+
+        mod_table.current_bet = 0
+
+        return mod_table
 
     def river(self):
         logging.info("=== Starting River ===")
-        deck: Deck = self.deck
-        river: Card = random.sample(deck.cards, 1)[0]
-        self.deck.cards.remove(river)
-        self.turn_card = river
-        logging.info(f"River card: {self.river_card}")
-        self.start_betting()
-        logging.info("=== Ending River ===")
-        self.current_bet = self.big_blind
+        mod_table: Table = deepcopy(self)
+        river: Card = mod_table.deck.draw(1)[0]
+        mod_table.river_card = river
 
+        logging.info(f"River card: {mod_table.river_card}")
+        mod_table.start_betting()
+        logging.info("=== Ending River ===")
+
+        mod_table.current_bet = 0
+
+        return mod_table
 
     def deal_community_cards(self):
+        raise NotImplementedError
+
+        """
         community_cards: list[Card] = random.sample(deck.cards, 5)
         self.flop_cards = community_cards[:3]
         self.turn_card = community_cards[3]
@@ -235,55 +303,100 @@ class Table:
 
         print(f"river - {self.river_card}")
         self.start_betting()
-
+        """
 
     def showdown(self):
+        mod_table: Table = deepcopy(self)
+
         logging.info("=== Starting Showdown ===")
-        for p in self.players:
+        for p in mod_table.players:
             logging.info(f"{p.name} - {p.hand}")
 
-        player_ranks: dict[Player, HandRank] = evaluate_table(self)
-        logging.info(f"Player ranks: {player_ranks}")
+        player_ranks: dict[Player, tuple[HandRank, list[Card]]] = evaluate_table(
+            mod_table
+        )
 
+        for p in player_ranks:
+            print(f"{p} - {player_ranks[p]}")
         player_chips: dict[Player, int] = {}
         player_chips = dict(sorted(player_chips.items(), key=lambda x: x[1]))
 
         for p in player_chips.items():
             logging.info(f"{p[0]} - {p[1]}")
-        logging.info("=== Ending Showdown ===")
+        logging.info("=== Ending Showdown ===\n")
+
+        return mod_table
 
 
-class HandRank(IntEnum):
-    HIGH_CARD = 0
-    PAIR = 1
-    TWO_PAIR = 2
-    THREE_OF_A_KIND = 3
-    STRAIGHT = 4
-    FLUSH = 5
-    FULL_HOUSE = 6
-    FOUR_OF_A_KIND = 7
-    STRAIGHT_FLUSH = 8
-    ROYAL_FLUSH = 9
+def handle_player_action(
+    table: Table, player_idx: int, action: Action
+) -> Optional[Table]:
+    """
+    Returns a new table with modified states based on player actions
+    """
+    mod_table: Table = deepcopy(table)
+
+    match action.code:
+        case 1:
+            if mod_table.current_bet > 0:
+                print("Cannot check. Minimum bet placed.")
+                return None
+
+            return mod_table
+
+        case 2:
+            mod_table.pot_size += mod_table.current_bet
+            mod_table.players[player_idx].chips -= mod_table.current_bet
+            return mod_table
+
+        case 3:
+            assert action.value is not None
+            raise_amt: int = action.value
+
+            if raise_amt < 2 * table.current_bet:
+                print("Minimum raise has to be twice the current bet")
+                return None
+
+            mod_table.current_bet = raise_amt
+            mod_table.players[player_idx].chips -= raise_amt
+            mod_table.pot_size += raise_amt
+            mod_table.last_player = mod_table.players[player_idx]
+            return mod_table
+
+        case 4:
+            mod_table.players[player_idx].is_active = False
+            return mod_table
+
+    return None
 
 
-def evaluate_table(table: Table) -> dict[Player, HandRank]:
-    community_cards: list[Card] = table.flop_cards + [table.river_card, table.turn_card]
-    player_ranks: dict[Player, HandRank] = dict()
+def evaluate_table(table: Table) -> dict[Player, tuple[HandRank, list[Card]]]:
+    community_cards: list[Card] = cast(
+        list[Card], table.flop_cards + [table.river_card, table.turn_card]
+    )
+    player_ranks: dict[Player, tuple[HandRank, list[Card]]] = dict()
 
     for player in table.players:
-        best_hand: HandRank = HandRank.HIGH_CARD
+        all_hand_combos = list(combinations(player.hand + community_cards, 5))
 
-        for hand in combinations(player.hand + community_cards, 5):
-            print(hand, evaluate_hand(list(hand)))
-            best_hand = max(best_hand, evaluate_hand(list(hand)))
+        best_hand_cards: list[Card] = list(all_hand_combos[0])
+        best_hand_rank: HandRank = evaluate_hand(best_hand_cards)
 
-        player_ranks[player] = best_hand
-        print(f"{player.name}: {best_hand}")
+        for hand in all_hand_combos:
+            # print(hand, evaluate_hand(list(hand)))
+            hand_eval: HandRank = evaluate_hand(list(hand))
+
+            if hand_eval > best_hand_rank:
+                best_hand_cards = list(hand)
+                best_hand_rank = hand_eval
+
+        player_ranks[player] = (best_hand_rank, best_hand_cards)
 
     # sort by ranks
-    player_ranks = dict(sorted(player_ranks.items(), key=lambda x: x[1])) 
+    player_ranks = dict(
+        sorted(player_ranks.items(), key=lambda x: x[1][0], reverse=True)
+    )
     return player_ranks
-
 
 
 def evaluate_hand(hand: list[Card]) -> HandRank:
@@ -294,30 +407,28 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
 
     hand.sort(key=lambda c: c.rank)
 
-
     def is_suited(cards: list[Card]) -> bool:
         return len(set(i.suit for i in cards)) == 1
 
     def is_sequence(cards: list[Card]) -> bool:
-        if (list(card.rank for card in cards) == [12, 0, 1, 2, 3]):
+        if list(card.rank for card in cards) == [12, 0, 1, 2, 3]:
             return True
 
         # iterate through all elements. i = 0 -> n-1. check if [i+1] - [i] = 1
         for i in range(len(cards) - 1):
-            if cards[i+1].rank - cards[i].rank != 1:
+            if cards[i + 1].rank - cards[i].rank != 1:
                 return False
 
         return True
 
-    if (is_suited(hand)):
-        if (list(i.rank for i in hand) == [8, 9, 10, 11, 12]):
+    if is_suited(hand):
+        if list(i.rank for i in hand) == [8, 9, 10, 11, 12]:
             return HandRank.ROYAL_FLUSH
-        elif (is_sequence(hand)):
+        elif is_sequence(hand):
             return HandRank.STRAIGHT_FLUSH
 
         return HandRank.FLUSH
     else:
-        # print("not suited...")
         # check for straight first
         # keep a dict of occurences for each element in the hand
         # 4 occurences?
@@ -327,13 +438,7 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
         # 2 occurences and 3 occurences?
         # else high card
 
-        """
-        - [x] find a way to map Ace to both 0 and 12. or find a better solution to sort the cards
-          because A = 12 and at the end of the 2 3 4 5 A card combination
-        - [x] stress test evaluate_table function for all 21 combinations
-        """
-
-        if (is_sequence(hand)):
+        if is_sequence(hand):
             return HandRank.STRAIGHT
 
         hand_counter: Counter = Counter(list(card.rank for card in hand))
@@ -342,7 +447,7 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
             case 4:
                 return HandRank.FOUR_OF_A_KIND
             case 3:
-                if (hand_counter.most_common(2)[1][1] == 2):
+                if hand_counter.most_common(2)[1][1] == 2:
                     # [KKK, 2, 2]
                     # [(K, 3), (2, 2)]
                     return HandRank.FULL_HOUSE
@@ -350,25 +455,13 @@ def evaluate_hand(hand: list[Card]) -> HandRank:
                 return HandRank.THREE_OF_A_KIND
             case 2:
                 # if there are two pairs
-                if (tuple(o for _, o in hand_counter.most_common(2)) == (2, 2)):
+                if tuple(o for _, o in hand_counter.most_common(2)) == (2, 2):
                     return HandRank.TWO_PAIR
                 else:
                     return HandRank.PAIR
-
 
         return HandRank.HIGH_CARD
 
 
 if __name__ == "__main__":
-    p1: Player = Player("alice", 1000)
-    p2: Player = Player("bob", 1000)
-    p3: Player = Player("charlie", 1000)
-    p4: Player = Player("tom", 1000)
-    p5: Player = Player("aarjav", 1000)
-    p6: Player = Player("stone", 1000)
-
-    deck: Deck = Deck()
-
-    table: Table = Table([p1, p2, p3, p4, p5, p6], 100, 200, deck)
-    table.begin_game()
-
+    raise NotImplementedError
