@@ -352,6 +352,10 @@ def handle_player_action(
         case 3:
             assert action.value is not None
             raise_amt: int = action.value
+            
+            if raise_amt >= mod_table.players[player_idx].chips:
+                print("Error: Raise is greater than available chips")
+                return None
 
             if raise_amt < 2 * table.current_bet:
                 print("Minimum raise has to be twice the current bet")

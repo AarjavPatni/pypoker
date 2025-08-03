@@ -2,13 +2,14 @@ import unittest
 from main import Player, Action, Table
 from dataclasses import dataclass
 
+
 @dataclass
 class GameTest:
     initial_player_chips: int
     rounds: list[list[Action]]
     table: Table
     runs: int = 1
-    
+
     def simulate_game(self) -> list[Player]:
         """
         1. Start the round (0 = preflop, 3 = river)
@@ -57,7 +58,6 @@ class TestPokerValid(unittest.TestCase):
         game.simulate_game()
 
 
-"""
 class TestPokerInvalid(unittest.TestCase):
     def test_raise_below_minimum(self):
         players = [Player("A", 1000), Player("B", 1000)]
@@ -80,18 +80,6 @@ class TestPokerInvalid(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             game.simulate_game()
-
-    def test_call_more_than_chips(self):
-        players = [Player("Caller", 50), Player("Raiser", 1000)]
-        rounds = [
-            [Action(3, 100), Action(2)],
-        ]
-        table = Table(small_blind=10, big_blind=20, players=players)
-        game = GameTest(initial_player_chips=1000, rounds=rounds, table=table)
-
-        with self.assertRaises(ValueError):
-            game.simulate_game()
-"""
 
 
 """
@@ -213,4 +201,3 @@ class TestPokerMultipleRuns(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main
-
