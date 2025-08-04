@@ -149,7 +149,8 @@ class Table:
 
     def __post_init__(self):
         self.current_bet = self.big_blind
-        self.last_player = self.players[0]
+        if self.players:
+            self.last_player = self.players[0]
 
     def begin_game(self):
         return self.pre_game().pre_flop().flop().turn().river().showdown().players

@@ -4,6 +4,7 @@ from main import ( Player, Action, Table, Card, Suit, HandRank, Rank, Deck, eval
 from dataclasses import dataclass
 import logging
 import random
+from copy import deepcopy
 
 
 logging.basicConfig(
@@ -398,7 +399,7 @@ class TestExtendedCoverage(unittest.TestCase):
         self.assertEqual(len(new_table.players[1].hand), 2)
 
 
-"""
+@unittest.skip("TODO: test later")
 class TestPokerMultipleRuns(unittest.TestCase):
     def setUp(self):
         self.players = [Player("P1", 1000), Player("P2", 1000)]
@@ -414,7 +415,7 @@ class TestPokerMultipleRuns(unittest.TestCase):
         for _ in range(self.runs):
             players_copy = [Player(p.name, p.chips) for p in self.players]
             table = Table(10, 20, players=players_copy)
-            game = GameTest(1000, copy.deepcopy(self.base_rounds), table)
+            game = GameTest(1000, deepcopy(self.base_rounds), table)
             result = game.simulate_game()
 
             all_cards = [c for p in result for c in p.hand] + table.flop_cards
@@ -429,7 +430,7 @@ class TestPokerMultipleRuns(unittest.TestCase):
         for _ in range(self.runs):
             players_copy = [Player(p.name, p.chips) for p in self.players]
             table = Table(10, 20, players=players_copy)
-            game = GameTest(1000, copy.deepcopy(self.base_rounds), table)
+            game = GameTest(1000, deepcopy(self.base_rounds), table)
             result = game.simulate_game()
             for p in result:
                 self.assertLessEqual(p.chips, 1000)
@@ -437,7 +438,7 @@ class TestPokerMultipleRuns(unittest.TestCase):
 
     def test_action_stack_not_mutated(self):
         for _ in range(self.runs):
-            rounds = copy.deepcopy(self.base_rounds)
+            rounds = deepcopy(self.base_rounds)
             table = Table(10, 20, players=[Player(p.name, p.chips) for p in self.players])
             game = GameTest(1000, rounds, table)
             try:
@@ -449,11 +450,10 @@ class TestPokerMultipleRuns(unittest.TestCase):
         seen_card_counts = []
         for _ in range(self.runs):
             table = Table(10, 20, players=[Player(p.name, p.chips) for p in self.players])
-            game = GameTest(1000, copy.deepcopy(self.base_rounds), table)
+            game = GameTest(1000, deepcopy(self.base_rounds), table)
             game.simulate_game()
             seen_card_counts.append(len(table.deck.cards))
         self.assertTrue(all(n <= 52 for n in seen_card_counts), "Deck not properly reset between runs")
-"""
 
 if __name__ == "__main__":
     unittest.main
