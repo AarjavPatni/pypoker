@@ -1,4 +1,4 @@
-# pypoker
+# PyPoker
 
 A networked Texas Hold'em engine written in Python. Supports a full 6-player game over WebSockets, with hand evaluation, betting rounds, and a room-based lobby system.
 
